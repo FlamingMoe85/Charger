@@ -105,7 +105,7 @@ SPSR = 1;
 
 PORTC = 32;
 
-TCCR1B = 5;
+TCCR1B = 1;
 
 while(1)
 {
