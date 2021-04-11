@@ -53,7 +53,7 @@ public:
 private:
     Ui::Widget *ui;
     QSerialPort serial;
-    QTimer comTimer;
+    QTimer comTimer, readTimer;
     QByteArray sendMsg, recMsg;
     int charsToSend, sendActive, recActive, recCnt, mode, modeOld;
 

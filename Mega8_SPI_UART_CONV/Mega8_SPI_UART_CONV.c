@@ -16,6 +16,26 @@ char uartIn, uartOut, spiIn, spiOut;
 #define SPI_TO_UART	4
 char mode = IDLE;
 
+#define SET_I_START 'B'
+      #define SET_I_END 'C' 
+      #define GET_I_START  'D'
+      #define GET_I_END 'E'
+
+      #define SET_U_START  'H'    
+      #define SET_U_END 'I'
+      #define GET_U_START  'J'
+      #define GET_U_END 'K'
+
+      #define SET_PWM_START 'N'
+      #define SET_PWM_END  'O'
+      #define GET_PWM_START 'P'
+      #define GET_PWM_END  'Q'
+
+      #define SET_MODE_START 'S'
+      #define SET_MODE_END 'T'
+      #define GET_MODE_START  'U'
+      #define GET_MODE_END 'V'
+
 void EnableSlaveSelect()
 {
 
@@ -37,7 +57,7 @@ void DisableSlaveSelect()
 
 	}
 	PORTB |= 0b00000100;
-	
+	PORTC = 32;
 }
 
 void ReadUart()
@@ -45,14 +65,24 @@ void ReadUart()
 	if((UCSRA & 128) == 128)
 	{
 		uartIn = UDR;
-		mode = UART_TO_SPI;
+		if(uartIn == 'l')EnableSlaveSelect();
+		else if(uartIn == 'h')DisableSlaveSelect();
+		else mode = UART_TO_SPI;
 	}
 }
 
 void PutUartToSpi()
 {
 	mode = SPI_SENDING;
-	EnableSlaveSelect();
+	/*if ((uartIn == 'B')||  (uartIn == 'D')
+		|| (uartIn == 'H')|| (uartIn == 'J')
+		|| (uartIn == 'N')|| (uartIn == 'P')
+		|| (uartIn == 'S')|| (uartIn == 'U'))
+	{
+		EnableSlaveSelect();
+		
+	}
+	*/
 	SPDR = uartIn;
 	
 }
@@ -62,8 +92,17 @@ void ReadSpi()
 
 		
 	mode = SPI_TO_UART;
-	DisableSlaveSelect();
 	spiIn = SPDR;
+	/*
+	if ((spiIn == 'C')||(spiIn == 'E')
+		|| (spiIn == 'I')|| (spiIn == 'K')
+		||  (spiIn == 'O')||(spiIn == 'Q')
+		|| (spiIn == 'T')||  (spiIn == 'V'))
+	{
+		DisableSlaveSelect();
+		PORTC = 0;
+	}
+	*/
 }
 
 void PutSpiToUart()

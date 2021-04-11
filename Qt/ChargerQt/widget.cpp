@@ -31,6 +31,7 @@ Widget::Widget(QWidget *parent) :
     comTimer.start();
     recActive = 0;
 
+
     mode = 0;
 }
 
@@ -101,6 +102,7 @@ void Widget::Slot_Read()
     if((dummyChar == SET_PWM_END) || (dummyChar == SET_U_END) || (dummyChar == SET_I_END) || (dummyChar == SET_MODE_END))
     {
         sendActive = 0;
+        serial.putChar('h');
     }
 }
 
@@ -149,6 +151,7 @@ void Widget::Slot_Send()
     {
         if(ui->radioButton_I->isChecked())
         {
+            serial.putChar('l');
             sendMsg.clear();
             sendMsg.append(SET_I_START);
             DisasmblVal(ui->horizontalSlider_Isoll->value(), &sendMsg);
@@ -156,6 +159,7 @@ void Widget::Slot_Send()
         }
         if(ui->radioButton_U->isChecked())
         {
+            serial.putChar('l');
             sendMsg.clear();
             sendMsg.append(SET_U_START);
             DisasmblVal(ui->horizontalSlider_Usoll->value(), &sendMsg);
@@ -163,6 +167,7 @@ void Widget::Slot_Send()
         }
         if(ui->radioButton_PWM->isChecked())
         {
+            serial.putChar('l');
             sendMsg.clear();
             sendMsg.append(SET_PWM_START);
             DisasmblVal(ui->horizontalSlider_PWMsoll->value(), &sendMsg);
@@ -171,6 +176,7 @@ void Widget::Slot_Send()
     }
     else
     {
+        serial.putChar('l');
         sendMsg.clear();
         sendMsg.append(SET_MODE_START);
         DisasmblVal(mode, &sendMsg);
@@ -218,19 +224,46 @@ void Widget::Slot_ComTimer()
     {
         if(whichReq == GET_I_START)
         {
+            serial.putChar('l');
+            readTimer.start(100);
+            while(readTimer.isActive());
+
             serial.putChar(whichReq);
+            readTimer.start(100);
+            while(readTimer.isActive());
+
+            serial.putChar('h');
+
             whichReq = GET_U_START;
             qDebug() << "Change Req to  " << whichReq;
         }
         else if(whichReq == GET_U_START)
         {
+            serial.putChar('l');
+            readTimer.start(100);
+            while(readTimer.isActive());
+
             serial.putChar(whichReq);
+            readTimer.start(100);
+            while(readTimer.isActive());
+
+            serial.putChar('h');
+
             whichReq = GET_PWM_START;
             qDebug() << "Change Req to  " << whichReq;
         }
         else if(whichReq == GET_PWM_START)
         {
+            serial.putChar('l');
+            readTimer.start(100);
+            while(readTimer.isActive());
+
             serial.putChar(whichReq);
+            readTimer.start(100);
+            while(readTimer.isActive());
+
+            serial.putChar('h');
+
             whichReq = GET_I_START;
             qDebug() << "Change Req to  " << whichReq;
         }

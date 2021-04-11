@@ -56,8 +56,8 @@ void ResetCellStates()
 #define MED_WM  990
 #define HGH_WM  1000
 
-#define LOW_CUR 160
-#define HGH_CUR 320
+#define LOW_CUR 80
+#define HGH_CUR 163
 
 void CellEvaluate(unsigned int* cellVolts)
 {
@@ -396,10 +396,14 @@ unsigned int AsmValue(char* recMsg)
 
 bool TicksForData(char checkToken)
 {
+  Serial.print(' ');
   for(int i=0; i<7; i++)
   {
-    dataInBuf[i] = sendSPI2('?');
+    dataInBuf[i] = SPI_2.transfer('?');//sendSPI2('?');
+    delay(1);
+    Serial.print((char)dataInBuf[i]);
   }
+  Serial.print(' ');
   if(dataInBuf[6] == checkToken) return true;
   
   return false;
@@ -525,14 +529,46 @@ CopyValArrToBuf(sendValCharArr, dataOutBuf, 4);
 dataOutBuf[headTx++] = SET_MODE_END;
 SendSpiMsg();
 delay(1000);
-Set_I(320);
+Set_I(0);
 Serial.begin(9600);
 }
 
 void loop() {
 
 //Set_U(500);
+/*
+DisasmblVal('i', sendValCharArr, 4);
+headTx = 0;
+dataOutBuf[headTx++] = SET_MODE_START;
+CopyValArrToBuf(sendValCharArr, dataOutBuf, 4);
+dataOutBuf[headTx++] = SET_MODE_END;
+SendSpiMsg();
+Set_I(180);
 
+
+sendSPI2(GET_MODE_START);
+TicksForData(GET_MODE_START);
+sendSPI2(GET_I_SOLL_STA);
+TicksForData(GET_I_SOLL_STA);
+*/
+/*
+if((Serial.available())) 
+{
+  char tC = Serial.read();
+  if((tC == 'h')) 
+  {
+    digitalWrite(SPI2_NSS_PIN, HIGH);
+  }
+  else if((tC == 'l')) 
+  {
+    digitalWrite(SPI2_NSS_PIN, LOW);
+  }
+  else
+  {
+    Serial.print((char)SPI_2.transfer(tC));
+  }
+ }
+*/
   if(digitalRead(PB11) == HIGH)
   {
     cntrlFlag = 1;
@@ -564,6 +600,7 @@ if((Serial.available()))
   }
 }
 */
+
 iIst = Get_Mode();
 lcd.setCursor(2, 0);
 lcd.print("   ");
@@ -609,6 +646,7 @@ lcd.print(iIst);
 lcd.setCursor(15, 1);
 lcd.print(cnt++);
 if(cnt >= 9) cnt = 0;
+
 
 //delay(1000);
 }

@@ -1,17 +1,19 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <stdint.h>
+#include <avr/wdt.h>
 
 #include "Regler_I.h"
 
 volatile char slaveSelStatusNew = 0, slaveSelStatusOld = 0;
 volatile char dataIn, dataOut = 'A',  recFlag = 0;
-unsigned int head = 0, headTx = 0, tailTx = 0;
+volatile unsigned int head = 0, headTx = 0, tailTx = 0;
 
 unsigned int  stromSoll = 0, stromIst, voltIst, voltSoll = 0, pwmIst, pwmSoll = 0, stell_U = 0;
+volatile char b = 0;
 
 #define BUF_SIZE	20
-char dataInBuf[BUF_SIZE], dataOutBuf[BUF_SIZE], sendValCharArr[4];
+volatile char dataInBuf[BUF_SIZE], dataOutBuf[BUF_SIZE], sendValCharArr[4], lastChar;
 #define SUC_I 'A'
 			#define SET_I_START 'B'
 			#define SET_I_END 'C'	
@@ -87,10 +89,10 @@ enum Tokens{
 #define PWM_MODE	'p'
 #define CUR_MODE	'i'
 #define	VOLT_MODE	'v'
-unsigned char mode = CUR_MODE;
+unsigned char mode = 0;
 
 unsigned int asmbldVal = 0;
-char curReqMode = 0;
+volatile char curReqMode = 0;
 
 void SetCompVal(unsigned int val);
 
@@ -124,6 +126,7 @@ char GetCurReq()
 void SetCurReq(char reqMode)
 {
 	curReqMode = reqMode;
+	
 }
 
 unsigned int GetAsmbldVal()
@@ -215,9 +218,6 @@ unsigned char CatchWrapFW(unsigned int skips)
 
 unsigned int ProcessChar(char recChar)
 {
-	dataInBuf[head++] = recChar;
-	if(head >= BUF_SIZE) head = 0;
-
 
 
 	switch(recChar)
@@ -296,8 +296,10 @@ unsigned int ProcessChar(char recChar)
 			}break;
 
 		case SET_MODE_END:{
+			
 			if(Process_Mode_End())
 			{
+				
 				mode = GetAsmbldVal();
 			}
 
@@ -363,40 +365,54 @@ void SetCompVal(unsigned int val)
 
 unsigned int GetBatVoltage()
 {
+	char tmpC = 0b11010100;
 	ADMUX = 0b01000001;
 	ADCSRB = 0b00001000;
-	//ADCSRB = 0;
-	ADCSRA = 0b1101001;
+
+	ADCSRA = tmpC;
 	while((ADCSRA & 16) == 0)
 	{
+		wdt_reset();
 	}
-	ADCSRA = 0b11010011;
+
+	ADCSRA = tmpC;
 	while((ADCSRA & 16) == 0)
 	{
+	wdt_reset();
 	}
-	ADCSRA = 0b11010011;
+
+	ADCSRA = tmpC;
 	while((ADCSRA & 16) == 0)
 	{
+	wdt_reset();
 	}
 	return ADC;
 }
 
 unsigned int GetBatCurrent()
 {
+	char tmpC = 0b11010100;
 	ADMUX = 0b01001111;
 	ADCSRB = 0b01001000;
-	ADCSRA = 0b11010011;
+
+	ADCSRA = tmpC;
 	while((ADCSRA & 16) == 0)
 	{
+	wdt_reset();
 	}
-	ADCSRA = 0b11010011;
+
+	ADCSRA = tmpC;
 	while((ADCSRA & 16) == 0)
 	{
+	wdt_reset();
 	}
-	ADCSRA = 0b11010011;
+
+	ADCSRA = tmpC;
 	while((ADCSRA & 16) == 0)
 	{
+	wdt_reset();
 	}
+	
 	return ADC;
 }
 
@@ -429,214 +445,255 @@ unsigned int GetMode()
 }
 */
 
+SIGNAL (PCINT_vect)
+{
+	
+
+
+	//GIFR |= 0b00100000;
+	if((PINB & 0b01000000) == 0b01000000)//jetzt SS IDLE - vorher also activ
+	{
+		
+		ProcessChar(lastChar);
+		//SetCompVal(0);
+	}
+	else
+	{
+		USISR = USISR & 0b11110000;
+		//SetCompVal(100);
+	}
+}
+
+SIGNAL (USI_OVF_vect)
+{
+	char dummyChar;
+	USISR |= 0b01000000;
+	dummyChar = USIDR;
+	lastChar = dummyChar;
+	//if(dummyChar == 'S')DDRA = 0;
+	if(dummyChar == 'S')DDRA = 0b00010000;
+
+	if(dummyChar != '?')
+	{
+		dataInBuf[head++] = dummyChar;
+		if(head >= BUF_SIZE) head = 0;
+	}
+
+	if(tailTx != headTx)
+	{
+		USIDR = dataOutBuf[tailTx++];
+		if(tailTx >= BUF_SIZE) tailTx = 0;
+	}
+}
+
+SIGNAL (ADC_vect)
+{
+return;
+}
+
 int main(void)
 { 
 
+	DDRB = 0b00001010;
+	PORTB |= 1;
 
-static char dummyChar;
-DDRB = 0b00001010;
-PORTB |= 1;
+	USICR = 0b01011000;
 
-USICR = 0b00011000;
-
-TCCR1A = 0b00010001;
-TCCR1B = 0b00000001;
-TC1H = 1;
-OCR1C = 170;
-PLLCSR = 0b00000010;
-while((PLLCSR & 1) != 1)
-	{
-	}
-PLLCSR = 0b00000111;
-//PORTB |= 1;
-SetCompVal(0);
-
-DIDR0 = 0b01111111;
-
-/*
-GIMSK = 0b00010000;
-PCMSK1 = 0b01000100;
-
-sei(); 
-*/
-SetCompVal(0);
-
-
-
-while(1)
-{
-
-
-	if(GetCurReq() == GET_I_START)
-	{
-	
-		dataOutBuf[headTx++] = GET_I_START;
-		if(headTx >= BUF_SIZE) headTx = 0;
-
-		DisasmblVal(stromIst, &(sendValCharArr[0]), 4);
-		CopyValArrToBuf(&(sendValCharArr[0]), &(dataOutBuf[0]), 4);
-
-		dataOutBuf[headTx++] = GET_I_END;
-		if(headTx >= BUF_SIZE) headTx = 0;
-
-		SetCurReq(0);
-	}
-
-	if(GetCurReq() == GET_U_START)
-	{
-	
-		dataOutBuf[headTx++] = GET_U_START;
-		if(headTx >= BUF_SIZE) headTx = 0;
-
-		DisasmblVal(voltIst, &(sendValCharArr[0]), 4);
-		CopyValArrToBuf(&(sendValCharArr[0]), &(dataOutBuf[0]), 4);
-
-		dataOutBuf[headTx++] = GET_U_END;
-		if(headTx >= BUF_SIZE) headTx = 0;
-
-		SetCurReq(0);
-	}
-
-	if(GetCurReq() == GET_MODE_START)
-	{
-	
-		dataOutBuf[headTx++] = GET_MODE_START;
-		if(headTx >= BUF_SIZE) headTx = 0;
-
-		DisasmblVal(mode, &(sendValCharArr[0]), 4);
-		CopyValArrToBuf(&(sendValCharArr[0]), &(dataOutBuf[0]), 4);
-
-		dataOutBuf[headTx++] = GET_MODE_END;
-		if(headTx >= BUF_SIZE) headTx = 0;
-
-		SetCurReq(0);
-	}
-
-	if(GetCurReq() == GET_PWM_START)
-	{
-	
-		dataOutBuf[headTx++] = GET_PWM_START;
-		if(headTx >= BUF_SIZE) headTx = 0;
-
-		DisasmblVal(pwmIst, &(sendValCharArr[0]), 4);
-		CopyValArrToBuf(&(sendValCharArr[0]), &(dataOutBuf[0]), 4);
-
-		dataOutBuf[headTx++] = GET_PWM_END;
-		if(headTx >= BUF_SIZE) headTx = 0;
-
-		SetCurReq(0);
-	}
-
-	
-
-	if(GetCurReq() == GET_U_SOLL_START)
-	{
-	
-		dataOutBuf[headTx++] = GET_U_SOLL_START;
-		if(headTx >= BUF_SIZE) headTx = 0;
-
-		DisasmblVal(voltSoll, &(sendValCharArr[0]), 4);
-		CopyValArrToBuf(&(sendValCharArr[0]), &(dataOutBuf[0]), 4);
-
-		dataOutBuf[headTx++] = GET_U_SOLL_END;
-		if(headTx >= BUF_SIZE) headTx = 0;
-
-		SetCurReq(0);
-	}
-
-	
-
-	if(GetCurReq() == GET_I_SOLL_START)
-	{
-	
-		dataOutBuf[headTx++] = GET_I_SOLL_START;
-		if(headTx >= BUF_SIZE) headTx = 0;
-
-		DisasmblVal(stromSoll, &(sendValCharArr[0]), 4);
-		CopyValArrToBuf(&(sendValCharArr[0]), &(dataOutBuf[0]), 4);
-
-		dataOutBuf[headTx++] = GET_I_SOLL_END;
-		if(headTx >= BUF_SIZE) headTx = 0;
-
-		SetCurReq(0);
-	}
- 
-
-	slaveSelStatusNew = (PINB & 0b01000000);// read slave select Pin
-	if(slaveSelStatusNew != slaveSelStatusOld)//SS edge detect
-	{
-		if(slaveSelStatusOld == 0)//jetzt SS IDLE - vorher also activ
+	TCCR1A = 0b00010001;
+	TCCR1B = 0b00000001;
+	TC1H = 1;
+	OCR1C = 170;
+	PLLCSR = 0b00000010;
+	while((PLLCSR & 1) != 1)
 		{
-			dummyChar = USIDR;
-			ProcessChar(dummyChar);
-			if(tailTx != headTx)
-			{
-				USIDR = dataOutBuf[tailTx++];
-				if(tailTx >= BUF_SIZE) tailTx = 0;
-			}
 		}
-	}
-	slaveSelStatusOld = slaveSelStatusNew; // part of edge detection
+	PLLCSR = 0b00000111;
+	//PORTB |= 1;
+	//SetCompVal(0);
 
+	DIDR0 = 0b01101111;
+
+	/*
+	GIMSK = 0b00010000;
+	PCMSK1 = 0b01000100;
+
+	sei(); 
+	*/
+	GIMSK |= 0b00100000;
+	PCMSK1 |= 0b01000000;
+	SetCompVal(0);
+
+	sei();
+if(DDRA == 0)
+	{
+		DDRA = 0b00010000;
+	}
+	else
+	{
+		DDRA = 0;
+	}
+
+TCCR0B = 4;
+
+	while(1)
+	{
+
+
+		if(GetCurReq() == GET_I_START)
+		{
+	
+			dataOutBuf[headTx++] = GET_I_START;
+			if(headTx >= BUF_SIZE) headTx = 0;
+
+			DisasmblVal(stromIst, &(sendValCharArr[0]), 4);
+			CopyValArrToBuf(&(sendValCharArr[0]), &(dataOutBuf[0]), 4);
+
+			dataOutBuf[headTx++] = GET_I_END;
+			if(headTx >= BUF_SIZE) headTx = 0;
+
+			SetCurReq(0);
+		}
+
+		if(GetCurReq() == GET_U_START)
+		{
+	
+			dataOutBuf[headTx++] = GET_U_START;
+			if(headTx >= BUF_SIZE) headTx = 0;
+
+			DisasmblVal(voltIst, &(sendValCharArr[0]), 4);
+			CopyValArrToBuf(&(sendValCharArr[0]), &(dataOutBuf[0]), 4);
+
+			dataOutBuf[headTx++] = GET_U_END;
+			if(headTx >= BUF_SIZE) headTx = 0;
+
+			SetCurReq(0);
+		}
+
+		if(GetCurReq() == GET_MODE_START)
+		{
+			dataOutBuf[headTx++] = GET_MODE_START;
+			if(headTx >= BUF_SIZE) headTx = 0;
+
+			DisasmblVal(mode, sendValCharArr, 4);
+			CopyValArrToBuf(sendValCharArr, dataOutBuf, 4);
+
+			dataOutBuf[headTx++] = GET_MODE_END;
+			if(headTx >= BUF_SIZE) headTx = 0;
+
+			SetCurReq(0);
+		}
+
+		if(GetCurReq() == GET_PWM_START)
+		{
+			
+			dataOutBuf[headTx++] = GET_PWM_START;
+			if(headTx >= BUF_SIZE) headTx = 0;
+
+			DisasmblVal(pwmIst, &(sendValCharArr[0]), 4);
+			CopyValArrToBuf(&(sendValCharArr[0]), &(dataOutBuf[0]), 4);
+
+			dataOutBuf[headTx++] = GET_PWM_END;
+			if(headTx >= BUF_SIZE) headTx = 0;
+
+			SetCurReq(0);
+		}
+
+	
+
+		if(GetCurReq() == GET_U_SOLL_START)
+		{
+	
+			dataOutBuf[headTx++] = GET_U_SOLL_START;
+			if(headTx >= BUF_SIZE) headTx = 0;
+
+			DisasmblVal(voltSoll, &(sendValCharArr[0]), 4);
+			CopyValArrToBuf(&(sendValCharArr[0]), &(dataOutBuf[0]), 4);
+
+			dataOutBuf[headTx++] = GET_U_SOLL_END;
+			if(headTx >= BUF_SIZE) headTx = 0;
+
+			SetCurReq(0);
+		}
+
+	
+
+		if(GetCurReq() == GET_I_SOLL_START)
+		{
+	
+			dataOutBuf[headTx++] = GET_I_SOLL_START;
+			if(headTx >= BUF_SIZE) headTx = 0;
+
+			DisasmblVal(stromSoll, &(sendValCharArr[0]), 4);
+			CopyValArrToBuf(&(sendValCharArr[0]), &(dataOutBuf[0]), 4);
+
+			dataOutBuf[headTx++] = GET_I_SOLL_END;
+			if(headTx >= BUF_SIZE) headTx = 0;
+
+			SetCurReq(0);
+		}
+ 
 
 	stromIst = GetBatCurrent();
 	voltIst = GetBatVoltage();
 
-	if(mode == CUR_MODE)
-	{	
-		if((PINA & 128) == 128)
+		
+
+		if(mode == CUR_MODE)
+		{	
+			if((PINA & 128) == 128)
+			{
+				SetCompVal(Regulate_I(stromIst, stromSoll));
+			}
+			else
+			{
+				SetCompVal(0);
+			}
+			stell_U = 0;
+		}
+		else if(mode == VOLT_MODE)
+		{	
+			if((PINA & 128) == 128)
+			{
+				if(voltIst > voltSoll)
+				{
+					if(stell_U > 0)stell_U--;
+				}
+				if(voltIst < voltSoll)
+				{
+					if(stell_U < 426)stell_U++;
+				}
+				SetCompVal(stell_U);
+			}
+			else
+			{
+				SetCompVal(0);
+			}
+			ResetRegler_I();
+		}
+		else if(mode == PWM_MODE)
 		{
-			SetCompVal(Regulate_I(stromIst, stromSoll));
+			if((PINA & 128) == 128)
+			{
+				SetCompVal(pwmSoll);
+				ResetRegler_I();
+				stell_U = 0;
+			}
+			else
+			{
+				SetCompVal(0);
+			}
 		}
 		else
 		{
 			SetCompVal(0);
-		}
-		stell_U = 0;
-	}
-	else if(mode == VOLT_MODE)
-	{	
-		if((PINA & 128) == 128)
-		{
-			if(voltIst > voltSoll)
-			{
-				if(stell_U > 0)stell_U--;
-			}
-			if(voltIst < voltSoll)
-			{
-				if(stell_U < 426)stell_U++;
-			}
-			SetCompVal(stell_U);
-		}
-		else
-		{
-			SetCompVal(0);
-		}
-		ResetRegler_I();
-	}
-	else if(mode == PWM_MODE)
-	{
-		if((PINA & 128) == 128)
-		{
-			SetCompVal(pwmSoll);
 			ResetRegler_I();
 			stell_U = 0;
 		}
-		else
-		{
-			SetCompVal(0);
-		}
-	}
-	else
-	{
-		SetCompVal(0);
-		ResetRegler_I();
-		stell_U = 0;
-	}
 
 
-}
+	};
+	
 
-}//main
+};//main
 
 

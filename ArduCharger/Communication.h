@@ -1,4 +1,4 @@
-unsigned int iSoll = 200;
+unsigned int iSoll = 100;
 unsigned int headTx = 0;
 #define BUF_SIZE  20
 char dataInBuf[BUF_SIZE], dataOutBuf[BUF_SIZE], sendValCharArr[4];
