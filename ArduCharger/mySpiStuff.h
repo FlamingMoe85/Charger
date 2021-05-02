@@ -2,7 +2,41 @@
 
 
 #define SPI2_NSS_PIN PB12 
+#define SCK PB13
+#define MISO  PB14
+#define MOSI  PB15
+
+
+
+#define SOFT_SPI
+#ifndef SOFT_SPI
 SPIClass SPI_2(2);
+#endif
+#define OPTO_DELAY  1
+
+
+
+char SoftSpiTransfer(char txVal)
+{
+  char retChar = 0;
+  for(int i=0; i<8; i++)
+  {
+    retChar = retChar << 1;
+     if((txVal & 128) == 128)digitalWrite(MOSI, HIGH);
+     else digitalWrite(MOSI, LOW);
+     delay(OPTO_DELAY);
+     txVal = txVal << 1;
+     
+     
+     digitalWrite(SCK, HIGH);
+     if((digitalRead(MISO)) == HIGH) retChar |= 1;
+     
+     delay(OPTO_DELAY);
+     
+     digitalWrite(SCK, LOW);
+  }
+  return retChar;
+}
 
 char sendSPI2(char txVal)
 {
@@ -10,7 +44,11 @@ char sendSPI2(char txVal)
   //delay(50);
   digitalWrite(SPI2_NSS_PIN, LOW); // manually take CSN low for SPI_2 transmission
   delay(10);
+#ifdef SOFT_SPI
+  retChar = SoftSpiTransfer(txVal);
+#else
   retChar = SPI_2.transfer(txVal); //Send the HEX data 0x55 over SPI-2 port and store the received byte to the <data> variable.
+#endif
   delay(10);
   digitalWrite(SPI2_NSS_PIN, HIGH); // manually take CSN high between spi transmissions
   delay(10);
@@ -21,54 +59,51 @@ char sendSPI2(char txVal)
 void SendSpiMsg()
 {
   //Serial.print("Send SPI ");
-  /*
-  sendSPI2(dataOutBuf[0]);
-  sendSPI2(dataOutBuf[1]);
-  sendSPI2(dataOutBuf[2]);
-  sendSPI2(dataOutBuf[3]);
-  sendSPI2(dataOutBuf[4]);
-  sendSPI2(dataOutBuf[5]);
-  */
   delay(10);
   digitalWrite(SPI2_NSS_PIN, LOW); // manually take CSN low for SPI_2 transmission
   delay(10);
-/*
-Serial.print(dataOutBuf[0]);
-Serial.print(dataOutBuf[1]);
-Serial.print(dataOutBuf[2]);
-Serial.print(dataOutBuf[3]);
-Serial.print(dataOutBuf[4]);
-Serial.print(dataOutBuf[5]);
-*/
-/*
-Serial.print(' ');
   
-  Serial.print((char)SPI_2.transfer(dataOutBuf[0]));
-  delay(10);
-  Serial.print((char)SPI_2.transfer(dataOutBuf[1]));
-  delay(10);
-  Serial.print((char)SPI_2.transfer(dataOutBuf[2]));
-  delay(10);
-  Serial.print((char)SPI_2.transfer(dataOutBuf[3]));
-  delay(10);
-  Serial.print((char)SPI_2.transfer(dataOutBuf[4]));
-  delay(10);
-  Serial.print((char)SPI_2.transfer(dataOutBuf[5]));
-  delay(10);
-  Serial.println(' ');
-  Serial.println(' ');
-  */
+#ifdef SOFT_SPI
+  SoftSpiTransfer(dataOutBuf[0]);
+#else
   SPI_2.transfer(dataOutBuf[0]);
+#endif
   delay(10);
+  
+#ifdef SOFT_SPI
+  SoftSpiTransfer(dataOutBuf[1]);
+#else
   SPI_2.transfer(dataOutBuf[1]);
+#endif
   delay(10);
+  
+#ifdef SOFT_SPI
+  SoftSpiTransfer(dataOutBuf[2]);
+#else
   SPI_2.transfer(dataOutBuf[2]);
+#endif
   delay(10);
+  
+#ifdef SOFT_SPI
+  SoftSpiTransfer(dataOutBuf[3]);
+#else
   SPI_2.transfer(dataOutBuf[3]);
+#endif
   delay(10);
+  
+#ifdef SOFT_SPI
+  SoftSpiTransfer(dataOutBuf[4]);
+#else
   SPI_2.transfer(dataOutBuf[4]);
+#endif
   delay(10);
+  
+#ifdef SOFT_SPI
+  SoftSpiTransfer(dataOutBuf[5]);
+#else
   SPI_2.transfer(dataOutBuf[5]);
+#endif
+
   delay(10);
   digitalWrite(SPI2_NSS_PIN, HIGH); // manually take CSN low for SPI_2 transmission
   delay(10);

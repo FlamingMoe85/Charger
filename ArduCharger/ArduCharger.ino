@@ -56,8 +56,8 @@ void ResetCellStates()
 #define MED_WM  990
 #define HGH_WM  1000
 
-#define LOW_CUR 80
-#define HGH_CUR 163
+#define LOW_CUR 160
+#define HGH_CUR 320
 
 void CellEvaluate(unsigned int* cellVolts)
 {
@@ -399,7 +399,11 @@ bool TicksForData(char checkToken)
   Serial.print(' ');
   for(int i=0; i<7; i++)
   {
+#ifdef SOFT_SPI
+  dataInBuf[i] = SoftSpiTransfer('?');
+ #else
     dataInBuf[i] = SPI_2.transfer('?');//sendSPI2('?');
+  #endif
     delay(1);
     Serial.print((char)dataInBuf[i]);
   }
@@ -511,11 +515,17 @@ lcd.begin(16, 2);
 lcd.setCursor(0, 0);
 //lcd.print("Jasson in House");
 
+/*
 SPI_2.begin(); //Initialize the SPI_2 port.
 SPI_2.setBitOrder(MSBFIRST); // Set the SPI_2 bit order
 SPI_2.setDataMode(SPI_MODE0); //Set the  SPI_2 data mode 0
 SPI_2.setClockDivider(SPI_CLOCK_DIV256);  // Use a different speed to SPI 1
+*/
 pinMode(SPI2_NSS_PIN, OUTPUT);
+pinMode(SCK, OUTPUT);
+pinMode(MOSI, OUTPUT);
+pinMode(MISO, INPUT);
+digitalWrite(MISO, HIGH);
 
 pinMode(PC13, OUTPUT);
 digitalWrite(PC13, LOW);
