@@ -5,6 +5,8 @@
 
 #include "Regler_I.h"
 
+#define PROTO
+
 volatile char slaveSelStatusNew = 0, slaveSelStatusOld = 0;
 volatile char dataIn, dataOut = 'A',  recFlag = 0;
 volatile unsigned int head = 0, headTx = 0, tailTx = 0;
@@ -365,9 +367,16 @@ void SetCompVal(unsigned int val)
 
 unsigned int GetBatVoltage()
 {
+#ifdef PROTO
 	char tmpC = 0b11010100;
 	ADMUX = 0b01000001;
 	ADCSRB = 0b00001000;
+#endif
+#ifndef PROTO
+	char tmpC = 0b11010100;
+	ADMUX = 0b01001101;
+	ADCSRB = 0b00001000;
+#endif
 
 	ADCSRA = tmpC;
 	while((ADCSRA & 16) == 0)
@@ -391,9 +400,17 @@ unsigned int GetBatVoltage()
 
 unsigned int GetBatCurrent()
 {
+#ifdef PROTO
 	char tmpC = 0b11010100;
 	ADMUX = 0b01001111;
 	ADCSRB = 0b01001000;
+#endif
+
+#ifndef PROTO
+	char tmpC = 0b11010100;
+	ADMUX = 0b01000011;
+	ADCSRB = 0b01001000;
+#endif
 
 	ADCSRA = tmpC;
 	while((ADCSRA & 16) == 0)
